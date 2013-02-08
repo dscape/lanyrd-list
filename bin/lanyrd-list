@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+var frameless = require('frameless')
+  , lanyrd    = require('lanyrd')
+  ;
+
+frameless(
+    { name: 'users', 'default': 
+    'dscape,indexzero,anoemi,maciejmalecki,avianflu,3rdeden,bmeck,julian_duque,yawnt,swaagie,blakmatrix' },
+  function (opts) {
+  var confs = {};
+  var usernames = opts.users.split(',');
+  var expect = usernames.length;
+  usernames.forEach(function (username) {
+    lanyrd.futureEvents(username, function (err, _, body) {
+      expect--;
+      if(Array.isArray(body) && body.length !== 0) {
+        body.forEach(function (conference) {
+          var label = conference.subsubtitle_class;
+          var title = conference.external;
+          if(label === 'tracking') {
+            return;
+          }
+          if(confs[title]) {
+            if(label === 'speaking') {
+              confs[title].type = 'speaking';
+            }
+            confs[title].attendees.push({
+              name: username,
+              link: "https://twitter.com/"+username,
+              type: label
+            });
+          }
+          else {
+            confs[title] = {
+              title: title,
+              type: label,
+              date: conference.subtitle.split(' — ')[0],
+              location: conference.subtitle.split(' — ')[1],
+              href: conference.external,
+              epoch: +new Date(conference.month),
+              month: conference.month,
+              attendees: [
+                { name: username,
+                  link: "https://twitter.com/"+username,
+                  type: label
+                }
+              ]
+            };
+          }
+        });
+      }
+      if(expect===0) {
+        var flat = Object.keys(confs).map(function (k) {
+          return confs[k];
+        }).sort(function (a,b) {
+          return a.epoch - b.epoch;
+        });
+        frameless.info(flat);
+      }
+    });
+  });
+});
